@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#ffffff">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Cobros">
 <meta name="description" content="Registro de cobros odontológicos por obra social">
@@ -650,18 +651,21 @@ function renderDB(){
   const q=(document.getElementById("db-search")?.value||"").toLowerCase().trim();
   const filtered=practicas.map((p,i)=>({p,i})).filter(({p})=>!q||p.nom.toLowerCase().includes(q)||p.cod.includes(q));
   if(!filtered.length){list.innerHTML='<div class="empty"><p>Sin resultados</p></div>';return;}
-  list.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
-    ${filtered.map(({p,i},fi)=>{
-      const precios=OS_KEYS.filter(os=>p[os]).map(os=>`<span style="font-size:11px;color:var(--text3)">${os} <span style="color:var(--text2);font-family:'DM Mono',monospace">$${Number(p[os]).toLocaleString("es-AR")}</span></span>`).join(" · ");
-      return `<div onclick="openModal(${i})" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:${fi<filtered.length-1?'1px solid var(--border)':\`none\`};cursor:pointer;transition:background .1s;-webkit-tap-highlight-color:rgba(0,0,0,0.05)" onmouseenter="this.style.background='var(--bg3)'" onmouseleave="this.style.background=''">
-        <div style="min-width:0;flex:1">
-          <div style="font-size:14px;font-weight:500;color:var(--text)">${p.nom||'Sin nombre'}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px;font-family:'DM Mono',monospace">${p.cod||'—'} ${precios?'· '+precios:''}</div>
-        </div>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex-shrink:0;margin-left:8px"><polyline points="9 18 15 12 9 6"/></svg>
-      </div>`;
-    }).join("")}
-  </div>`;
+  let rows="";
+  filtered.forEach(({p,i},fi)=>{
+    const precios=OS_KEYS.filter(os=>p[os]).map(os=>{
+      return '<span style="font-size:11px;color:var(--text3)">'+os+' <span style="color:var(--text2);font-family:DM Mono,monospace">$'+Number(p[os]).toLocaleString("es-AR")+"</span></span>";
+    }).join(" · ");
+    const border=fi<filtered.length-1?"1px solid var(--border)":"none";
+    rows+='<div onclick="openModal('+i+')" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:'+border+';cursor:pointer">'+
+      '<div style="min-width:0;flex:1">'+
+        '<div style="font-size:14px;font-weight:500;color:var(--text)">'+( p.nom||"Sin nombre")+'</div>'+
+        '<div style="font-size:11px;color:var(--text3);margin-top:2px;font-family:DM Mono,monospace">'+( p.cod||"—")+(precios?" · "+precios:"")+'</div>'+
+      '</div>'+
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex-shrink:0;margin-left:8px"><polyline points="9 18 15 12 9 6"/></svg>'+
+    '</div>';
+  });
+  list.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">'+rows+'</div>';
 }
 
 function openModal(idx){
