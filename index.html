@@ -585,47 +585,92 @@ function updateMesFiltro(){
   }).join("");
 }
 
+function toggleMes(mes){
+  const el=document.getElementById("pacientes-"+mes);
+  const arrow=document.getElementById("arrow-"+mes);
+  if(!el)return;
+  const open=el.style.display!=="none";
+  el.style.display=open?"none":"block";
+  if(arrow)arrow.style.transform=open?"rotate(0deg)":"rotate(180deg)";
+}
+
 function renderHist(){
   const cont=document.getElementById("hist-content");
   const filtro=document.getElementById("mes-filter").value;
   const datos=filtro?historial.filter(h=>h.mes===filtro):historial;
-  if(!datos.length){cont.innerHTML='<div class="empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No hay cobros registrados aún</p></div>';return;}
-  const porOS={};
-  datos.forEach(h=>h.items.forEach(item=>{if(!porOS[item.os])porOS[item.os]=0;porOS[item.os]+=item.monto*item.qty;}));
-  const totalGral=Object.values(porOS).reduce((a,v)=>a+v,0);
-  const dashHtml=`<div class="section-title">Resumen</div>
-  <div class="dash-row">
-    <div class="dash-card total"><div class="dash-lbl">Total cobrado</div><div class="dash-val">$${totalGral.toLocaleString("es-AR")}</div><div class="dash-sub">${datos.length} cobro${datos.length!==1?"s":""}</div></div>
-    ${Object.entries(porOS).sort((a,b)=>b[1]-a[1]).map(([os,v])=>`<div class="dash-card"><div class="dash-lbl">${os}</div><div class="dash-val">$${v.toLocaleString("es-AR")}</div><div class="dash-sub">${Math.round(v/totalGral*100)}%</div></div>`).join("")}
-  </div>`;
+  if(!datos.length){
+    cont.innerHTML='<div class="empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No hay cobros registrados aún</p></div>';
+    return;
+  }
+
+  // Resumen global (solo cuando se ven todos los meses)
+  let dashHtml="";
+  if(!filtro){
+    const porOS={};
+    datos.forEach(h=>h.items.forEach(item=>{if(!porOS[item.os])porOS[item.os]=0;porOS[item.os]+=item.monto*item.qty;}));
+    const totalGral=Object.values(porOS).reduce((a,v)=>a+v,0);
+    dashHtml='<div class="section-title">Resumen general</div>'+
+    '<div class="dash-row">'+
+      '<div class="dash-card total"><div class="dash-lbl">Total cobrado</div><div class="dash-val">$'+totalGral.toLocaleString("es-AR")+'</div><div class="dash-sub">'+datos.length+' cobro'+(datos.length!==1?"s":"")+'</div></div>'+
+      Object.entries(porOS).sort((a,b)=>b[1]-a[1]).map(([os,v])=>
+        '<div class="dash-card"><div class="dash-lbl">'+os+'</div><div class="dash-val">$'+v.toLocaleString("es-AR")+'</div><div class="dash-sub">'+Math.round(v/totalGral*100)+'%</div></div>'
+      ).join("")+
+    '</div>';
+  }
+
+  // Agrupar por mes
   const grupos={};
   datos.forEach(h=>{if(!grupos[h.mes])grupos[h.mes]={label:h.mesLabel,items:[]};grupos[h.mes].items.push(h);});
+
   const gruposHtml=Object.keys(grupos).sort((a,b)=>b.localeCompare(a)).map(mes=>{
     const g=grupos[mes];
     const totMes=g.items.reduce((a,h)=>a+h.total,0);
     const osMes={};
     g.items.forEach(h=>h.items.forEach(item=>{if(!osMes[item.os])osMes[item.os]=0;osMes[item.os]+=item.monto*item.qty;}));
-    return `<div class="section-title">
-      <div class="mes-header"><span class="mes-name">${g.label}</span><span class="mes-total">$${totMes.toLocaleString("es-AR")}</span></div>
-    </div>
-    <div class="os-pills">${Object.entries(osMes).map(([os,v])=>`<span class="os-pill">${os} <strong>$${v.toLocaleString("es-AR")}</strong></span>`).join("")}</div>
-    ${g.items.map(h=>{
+    const osPills=Object.entries(osMes).map(([os,v])=>
+      '<span class="os-pill">'+os+' <strong>$'+v.toLocaleString("es-AR")+'</strong></span>'
+    ).join("");
+    const pacCount=g.items.length;
+    const mesId=mes.replace("-","_");
+
+    // Pacientes colapsados
+    const pacientesHtml=g.items.map(h=>{
       const osDelCobro=[...new Set(h.items.map(i=>i.os))];
-      return `<div class="cobro-card">
-        <div style="flex:1;min-width:0">
-          <div class="cobro-pac">${h.nombre}</div>
-          <div class="cobro-meta">${h.fecha} · ${h.items.length} práctica${h.items.length!==1?"s":""}
-            ${osDelCobro.map(os=>`<span class="os-tag" style="margin-left:4px">${os}</span>`).join("")}
-          </div>
-          <div class="cobro-actions">
-            <button class="cobro-btn" onclick="cargar(${h.id})">Cargar</button>
-            <button class="cobro-btn del" onclick="borrar(${h.id})">Eliminar</button>
-          </div>
-        </div>
-        <div class="cobro-right"><div class="cobro-amt">$${h.total.toLocaleString("es-AR")}</div></div>
-      </div>`;
-    }).join("")}`;
+      return '<div class="cobro-card">'+
+        '<div style="flex:1;min-width:0">'+
+          '<div class="cobro-pac">'+h.nombre+'</div>'+
+          '<div class="cobro-meta">'+h.fecha+' · '+h.items.length+' práctica'+(h.items.length!==1?"s":"")+
+            osDelCobro.map(os=>'<span class="os-tag" style="margin-left:4px">'+os+'</span>').join("")+
+          '</div>'+
+          '<div class="cobro-actions">'+
+            '<button class="cobro-btn" onclick="cargar('+h.id+')">Cargar</button>'+
+            '<button class="cobro-btn del" onclick="borrar('+h.id+')">Eliminar</button>'+
+          '</div>'+
+        '</div>'+
+        '<div class="cobro-right"><div class="cobro-amt">$'+h.total.toLocaleString("es-AR")+'</div></div>'+
+      '</div>';
+    }).join("");
+
+    return (
+      // Header del mes — clickeable
+      '<div onclick="toggleMes(\''+mesId+'\')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;cursor:pointer;border-bottom:1px solid var(--border);margin-bottom:0;user-select:none">'+
+        '<div>'+
+          '<div style="font-size:15px;font-weight:600;text-transform:capitalize;color:var(--text)">'+g.label+'</div>'+
+          '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">'+osPills+'</div>'+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-left:10px">'+
+          '<div style="text-align:right">'+
+            '<div style="font-size:16px;font-weight:600;font-family:DM Mono,monospace;color:var(--text)">$'+totMes.toLocaleString("es-AR")+'</div>'+
+            '<div style="font-size:11px;color:var(--text3)">'+pacCount+' paciente'+(pacCount!==1?"s":"")+'</div>'+
+          '</div>'+
+          '<svg id="arrow-'+mesId+'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="transition:transform .2s;transform:rotate(0deg);flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>'+
+        '</div>'+
+      '</div>'+
+      // Pacientes colapsados
+      '<div id="pacientes-'+mesId+'" style="display:none;padding-top:8px;margin-bottom:16px">'+pacientesHtml+'</div>'
+    );
   }).join("");
+
   cont.innerHTML=dashHtml+gruposHtml;
 }
 
