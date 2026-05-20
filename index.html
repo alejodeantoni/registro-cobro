@@ -340,6 +340,7 @@
         <input type="text" id="db-search" placeholder="Buscar práctica..." style="padding-left:32px" oninput="renderDB()">
       </div>
       <div id="db-list"></div>
+      <div id="db-lastmod" style="font-size:11px;color:var(--text3);text-align:center;padding:12px 0 4px"></div>
     </div>
 
   </div>
@@ -429,7 +430,7 @@ const DEFAULT_DB=[
   {cod:"20801",nom:"Rehabilitación estética 2", OSDE:null,   "PODER J":null, MEDIF:null,  "SWISS M":20500, SANCOR:null, OPDEA:null,  PARTICULAR:null},
 ];
 
-let practicas=[], historial=[], items=[];
+let practicas=[], historial=[], items=[], dbLastMod=null;
 
 // Init fecha
 const fechaInp=document.getElementById("fecha-inp");
@@ -457,18 +458,19 @@ async function loadData(){
     const d=j.record||{};
     practicas=d.practicas&&d.practicas.length?d.practicas:DEFAULT_DB;
     historial=d.historial||[];
+    dbLastMod=d.dbLastMod||null;
     document.getElementById("topbar-sub").textContent=historial.length+" cobros registrados";
   }catch(e){
     practicas=DEFAULT_DB; historial=[];
     document.getElementById("topbar-sub").textContent="Sin conexión — datos locales";
   }
-  renderDB(); renderHist(); updateMesFiltro();
+  renderDB(); renderHist(); updateMesFiltro(); renderDBLastMod();
 }
 
 async function saveAll(indId){
   setInd(indId,"Guardando...");
   try{
-    await fetch(BASE_URL,{method:"PUT",headers:{"Content-Type":"application/json","X-Master-Key":API_KEY},body:JSON.stringify({practicas,historial})});
+    await fetch(BASE_URL,{method:"PUT",headers:{"Content-Type":"application/json","X-Master-Key":API_KEY},body:JSON.stringify({practicas,historial,dbLastMod})});
     setInd(indId,"Guardado ✓","ok");
     document.getElementById("topbar-sub").textContent=historial.length+" cobros registrados";
   }catch(e){ setInd(indId,"Error","err"); }
@@ -551,7 +553,7 @@ async function registrar(){
   const fechaDate=fechaVal?new Date(fechaVal+"T12:00:00"):new Date();
   const mesKey=fechaDate.getFullYear()+"-"+(String(fechaDate.getMonth()+1).padStart(2,"0"));
   const mesLabel=fechaDate.toLocaleString("es-AR",{month:"long",year:"numeric"});
-  historial.unshift({id:Date.now(),nombre,fecha:fechaDate.toLocaleDateString("es-AR"),mes:mesKey,mesLabel,total:getTotal(),items:JSON.parse(JSON.stringify(items))});
+  historial.unshift({id:Date.now(),nombre,fecha:fechaDate.toLocaleDateString("es-AR"),mes:mesKey,mesLabel,total:getTotal(),items:JSON.parse(JSON.stringify(items)),registrado:new Date().toLocaleString("es-AR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})});
   await saveAll("save-ind");
   updateMesFiltro(); renderHist(); limpiar();
   toast("✓ Cobro registrado");
@@ -638,7 +640,7 @@ function renderHist(){
       return '<div class="cobro-card">'+
         '<div style="flex:1;min-width:0">'+
           '<div class="cobro-pac">'+h.nombre+'</div>'+
-          '<div class="cobro-meta">'+h.fecha+' · '+h.items.length+' práctica'+(h.items.length!==1?"s":"")+
+          '<div class="cobro-meta">'+h.fecha+(h.registrado?' · reg. '+h.registrado:"")+' · '+h.items.length+' práctica'+(h.items.length!==1?"s":"")+
             osDelCobro.map(os=>'<span class="os-tag" style="margin-left:4px">'+os+'</span>').join("")+
           '</div>'+
           '<div class="cobro-actions">'+
@@ -755,7 +757,17 @@ async function deleteFromModal(){
   toast("Práctica eliminada");
 }
 
-async function saveDB(){await saveAll("db-ind");toast("Aranceles guardados ✓");}
+async function saveDB(){
+  dbLastMod = new Date().toLocaleString("es-AR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  await saveAll("db-ind");
+  renderDBLastMod();
+  toast("Aranceles guardados ✓");
+}
+
+function renderDBLastMod(){
+  const el=document.getElementById("db-lastmod");
+  if(el) el.textContent=dbLastMod?"Última modificación: "+dbLastMod:"";
+}
 
 function addPractica(){
   const b={cod:"",nom:""};OS_KEYS.forEach(os=>b[os]=null);
