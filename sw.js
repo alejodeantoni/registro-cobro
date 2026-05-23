@@ -1,48 +1,56 @@
-const CACHE_NAME = 'cobros-odonto-v2';
-const BASE = '/cobros-odontologicos';
-const ASSETS = [
-  BASE + '/',
-  BASE + '/index.html',
-  BASE + '/manifest.json',
-  BASE + '/icons/icon-192.png',
-  BASE + '/icons/icon-512.png'
-];
+# 🦷 Cobros Odontológicos
 
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => 
-      Promise.allSettled(ASSETS.map(url => cache.add(url)))
-    )
-  );
-  self.skipWaiting();
-});
+PWA (Progressive Web App) para registro de cobros odontológicos por obra social.  
+Instalable en iPhone y Android. Datos sincronizados en la nube via JSONBin.
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
+## Instalación en el teléfono
 
-self.addEventListener('fetch', e => {
-  // Para JSONBin siempre ir a la red
-  if (e.request.url.includes('jsonbin.io') || e.request.url.includes('fonts.')) {
-    e.respondWith(fetch(e.request).catch(() => new Response('', {status: 503})));
-    return;
-  }
-  // Cache first, luego red
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(resp => {
-        if (resp && resp.status === 200) {
-          const clone = resp.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
-        }
-        return resp;
-      }).catch(() => caches.match(BASE + '/index.html'));
-    })
-  );
-});
+### iPhone (Safari)
+1. Abrí la app en Safari: `https://TU-USUARIO.github.io/cobros-odonto`
+2. Tocá el botón compartir (cuadrado con flecha ↑)
+3. Seleccioná **"Agregar a pantalla de inicio"**
+4. Tocá **Agregar** — aparece el ícono en tu pantalla
+
+### Android (Chrome)
+1. Abrí la app en Chrome: `https://TU-USUARIO.github.io/cobros-odonto`
+2. Aparece un banner automático "Instalar app" — tocá **Instalar**
+3. O bien: menú (⋮) → **"Agregar a pantalla de inicio"**
+
+---
+
+## Deploy en GitHub Pages
+
+1. Crear repositorio en GitHub llamado `cobros-odonto`
+2. Subir todos los archivos:
+   ```
+   git init
+   git add .
+   git commit -m "Initial commit"
+   git remote add origin https://github.com/TU-USUARIO/cobros-odonto.git
+   git push -u origin main
+   ```
+3. En el repo → **Settings** → **Pages** → Source: `main` / `/ (root)` → **Save**
+4. En ~2 minutos la app estará en: `https://TU-USUARIO.github.io/cobros-odonto`
+
+---
+
+## Estructura de archivos
+
+```
+cobros-odonto/
+├── index.html       # App completa
+├── manifest.json    # Config PWA
+├── sw.js            # Service Worker (offline)
+├── icons/
+│   ├── icon-192.png
+│   └── icon-512.png
+└── README.md
+```
+
+## Funcionalidades
+
+- **Registrar cobro**: paciente, fecha, obra social, prácticas con monto y cantidad
+- **Historial**: agrupado por mes con resumen por obra social
+- **Aranceles**: base de datos editable de prácticas y precios
+- **Offline**: funciona sin internet (solo lectura/edición local)
+- **Sync**: guarda en JSONBin al registrar
