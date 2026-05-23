@@ -240,7 +240,7 @@
   <!-- TOP BAR -->
   <div class="topbar">
     <div>
-      <div class="topbar-title">🦷 Cobros Odontológicos <span style="font-size:11px;font-weight:400;color:var(--text3);font-family:'DM Mono',monospace">v1.8</span></div>
+      <div class="topbar-title">🦷 Cobros Odontológicos <span style="font-size:11px;font-weight:400;color:var(--text3);font-family:'DM Mono',monospace">v1.9</span></div>
       <div class="topbar-sub" id="topbar-sub">Cargando...</div>
     </div>
     <div style="text-align:right;flex-shrink:0">
@@ -853,9 +853,11 @@ function addPractica(){
 }
 function deletePractica(i){if(!confirm("¿Eliminar esta práctica?"))return;practicas.splice(i,1);renderDB();}
 
-// Service Worker
+// Unregister any old service workers to prevent caching issues
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => reg.unregister());
+  });
 }
 
 loadData();
