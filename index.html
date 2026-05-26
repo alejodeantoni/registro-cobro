@@ -240,7 +240,7 @@
   <!-- TOP BAR -->
   <div class="topbar">
     <div>
-      <div class="topbar-title">🦷 Cobros Odontológicos <span style="font-size:11px;font-weight:400;color:var(--text3);font-family:'DM Mono',monospace">v2.2</span></div>
+      <div class="topbar-title">🦷 Cobros Odontológicos <span style="font-size:11px;font-weight:400;color:var(--text3);font-family:'DM Mono',monospace">v2.3</span></div>
       <div class="topbar-sub" id="topbar-sub">Cargando...</div>
     </div>
     <div style="text-align:right;flex-shrink:0">
@@ -451,6 +451,7 @@ const DEFAULT_DB=[
 ];
 
 let practicas=[], historial=[], items=[], dbLastMod=null;
+let dataLoadedOk=false; // bloquea saveAll si loadData falló
 let obrasSociales=["OSDE","PODER J","MEDIF","SWISS M","SANCOR","OPDEA","PARTICULAR"];
 
 // Init fecha
@@ -513,10 +514,12 @@ async function loadData(){
     historial=d.historial||[];
     dbLastMod=d.dbLastMod||null;
     if(d.obrasSociales&&d.obrasSociales.length)obrasSociales=d.obrasSociales;
+    dataLoadedOk=true;
     document.getElementById("topbar-sub").textContent=historial.length+" cobros registrados";
   }catch(e){
     practicas=DEFAULT_DB; historial=[];
-    document.getElementById("topbar-sub").textContent="Sin conexión — datos locales";
+    document.getElementById("topbar-sub").textContent="⚠️ Sin conexión — NO se guardarán cambios";
+    dataLoadedOk=false;
   }
   // Check if localStorage has more data than JSONBin
   try{
@@ -530,6 +533,11 @@ async function loadData(){
 }
 
 async function saveAll(indId){
+  if(!dataLoadedOk){
+    setInd(indId,"⚠️ No se puede guardar","err");
+    toast("⚠️ No se puede guardar: datos no cargados correctamente");
+    return;
+  }
   setInd(indId,"Guardando...");
   try{
     await fetch(BASE_URL,{method:"PUT",headers:{"Content-Type":"application/json","X-Master-Key":API_KEY},body:JSON.stringify({practicas,historial,dbLastMod,obrasSociales})});
