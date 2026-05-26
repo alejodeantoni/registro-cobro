@@ -240,7 +240,7 @@
   <!-- TOP BAR -->
   <div class="topbar">
     <div>
-      <div class="topbar-title">🦷 Cobros Odontológicos <span style="font-size:11px;font-weight:400;color:var(--text3);font-family:'DM Mono',monospace">v2.1</span></div>
+      <div class="topbar-title">🦷 Cobros Odontológicos <span style="font-size:11px;font-weight:400;color:var(--text3);font-family:'DM Mono',monospace">v2.2</span></div>
       <div class="topbar-sub" id="topbar-sub">Cargando...</div>
     </div>
     <div style="text-align:right;flex-shrink:0">
@@ -309,11 +309,21 @@
 
     <!-- PAGE: HISTORIAL -->
     <div class="page" id="page-hist">
-      <div class="mes-filter">
-        <select id="mes-filter" onchange="renderHist()">
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+        <select class="mes-sel" id="mes-filter" onchange="renderHist()" style="flex:1">
           <option value="">Todos los meses</option>
         </select>
+        <button class="btn btn-ghost btn-sm" onclick="exportarBackup()" title="Exportar backup">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Backup
+        </button>
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer" title="Importar backup">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Importar
+          <input type="file" accept=".json" style="display:none" onchange="importarBackup(event)">
+        </label>
       </div>
+
       <div id="hist-content">
         <div class="empty">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -461,6 +471,38 @@ function setInd(id,msg,cls){
   if(cls==="ok")setTimeout(()=>{el.textContent="";el.className="save-ind";},2500);
 }
 
+function exportarBackup(){
+  const data={practicas,historial,dbLastMod,obrasSociales,backupDate:new Date().toLocaleString("es-AR")};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="cobros_backup_"+new Date().toISOString().split("T")[0]+".json";
+  a.click();
+  toast("Backup descargado ✓");
+}
+
+function importarBackup(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!data.historial&&!data.practicas){toast("Archivo inválido");return;}
+      if(!confirm("¿Restaurar backup del "+( data.backupDate||"?")+"? Se reemplazarán los datos actuales."))return;
+      if(data.historial)historial=data.historial;
+      if(data.practicas)practicas=data.practicas;
+      if(data.obrasSociales)obrasSociales=data.obrasSociales;
+      if(data.dbLastMod)dbLastMod=data.dbLastMod;
+      await saveAll("save-ind");
+      renderOsSelector();renderDB();renderHist();updateMesFiltro();renderDBLastMod();
+      toast("Backup restaurado ✓");
+    }catch(err){toast("Error al leer el archivo");}
+  };
+  reader.readAsText(file);
+  e.target.value="";
+}
+
 async function loadData(){
   document.getElementById("topbar-sub").textContent="Sincronizando...";
   try{
@@ -476,6 +518,14 @@ async function loadData(){
     practicas=DEFAULT_DB; historial=[];
     document.getElementById("topbar-sub").textContent="Sin conexión — datos locales";
   }
+  // Check if localStorage has more data than JSONBin
+  try{
+    const bk=JSON.parse(localStorage.getItem("cobros_backup")||"{}");
+    if(bk.historial&&bk.historial.length>historial.length){
+      const usar=confirm("⚠️ JSONBin tiene "+historial.length+" cobros pero el backup local tiene "+bk.historial.length+". ¿Restaurar desde el backup local?");
+      if(usar){historial=bk.historial;practicas=bk.practicas||practicas;obrasSociales=bk.obrasSociales||obrasSociales;dbLastMod=bk.dbLastMod||dbLastMod;saveAll("save-ind");}
+    }
+  }catch(e){}
   renderOsSelector(); renderDB(); renderHist(); updateMesFiltro(); renderDBLastMod();
 }
 
@@ -483,6 +533,7 @@ async function saveAll(indId){
   setInd(indId,"Guardando...");
   try{
     await fetch(BASE_URL,{method:"PUT",headers:{"Content-Type":"application/json","X-Master-Key":API_KEY},body:JSON.stringify({practicas,historial,dbLastMod,obrasSociales})});
+    try{localStorage.setItem("cobros_backup",JSON.stringify({practicas,historial,dbLastMod,obrasSociales,backupDate:new Date().toLocaleString("es-AR")}));}catch(e){}
     setInd(indId,"Guardado ✓","ok");
     document.getElementById("topbar-sub").textContent=historial.length+" cobros registrados";
   }catch(e){ setInd(indId,"Error","err"); }
